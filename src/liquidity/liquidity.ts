@@ -1298,20 +1298,24 @@ export class Liquidity extends Base {
       fixedSide,
     })
 
+    const innerTransactions = await splitTxAndSigners({
+      connection,
+      makeTxVersion,
+      computeBudgetConfig,
+      payer,
+      innerTransaction: [
+        { instructionTypes: frontInstructionsType, instructions: frontInstructions, signers },
+        ins.innerTransaction,
+        { instructionTypes: endInstructionsType, instructions: endInstructions, signers: [] },
+      ],
+      lookupTableCache,
+    })
+
     return {
       address: {},
-      innerTransactions: await splitTxAndSigners({
-        connection,
-        makeTxVersion,
-        computeBudgetConfig,
-        payer,
-        innerTransaction: [
-          { instructionTypes: frontInstructionsType, instructions: frontInstructions, signers },
-          ins.innerTransaction,
-          { instructionTypes: endInstructionsType, instructions: endInstructions, signers: [] },
-        ],
-        lookupTableCache,
-      }),
+      tokenAccountIn: _tokenAccountIn,
+      tokenAccountOut: _tokenAccountOut,
+      innerTransactions: innerTransactions,
     }
   }
 

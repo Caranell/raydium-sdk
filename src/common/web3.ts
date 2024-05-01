@@ -395,7 +395,11 @@ export async function splitTxAndSigners<T extends TxVersion>({
     if (lookupTableAddressAccount[item] === undefined) needCacheLTA.push(new PublicKey(item))
   }
 
-  const newCacheLTA = await getMultipleLookupTableInfo({ connection, address: needCacheLTA })
+  let newCacheLTA: CacheLTA = {}
+
+  if (needCacheLTA.length) {
+    newCacheLTA = await getMultipleLookupTableInfo({ connection, address: needCacheLTA })
+  }
 
   for (const [key, value] of Object.entries(newCacheLTA)) lookupTableAddressAccount[key] = value
 
