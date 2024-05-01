@@ -371,6 +371,36 @@ export async function simulateTransaction(connection: Connection, transactions: 
   return results
 }
 
+export async function handleLTACache({
+  connection,
+  lookupTableCache,
+  innerTransactions,
+}: {
+  connection: Connection
+  lookupTableCache?: CacheLTA
+  innerTransactions: InnerTransaction[]
+}) {
+  const lookupTableAddressAccount = lookupTableCache ?? {}
+  const allLTA = [
+    ...new Set<string>(innerTransactions.map((i) => (i.lookupTableAddress ?? []).map((ii) => ii.toString())).flat()),
+  ]
+
+  const needCacheLTA: PublicKey[] = []
+  for (const item of allLTA) {
+    if (lookupTableAddressAccount[item] === undefined) needCacheLTA.push(new PublicKey(item))
+  }
+
+  let newCacheLTA: CacheLTA = {}
+
+  if (needCacheLTA.length) {
+    newCacheLTA = await getMultipleLookupTableInfo({ connection, address: needCacheLTA })
+  }
+
+  for (const [key, value] of Object.entries(newCacheLTA)) lookupTableAddressAccount[key] = value
+
+  return lookupTableAddressAccount
+}
+
 export async function splitTxAndSigners<T extends TxVersion>({
   connection,
   makeTxVersion,
@@ -386,22 +416,11 @@ export async function splitTxAndSigners<T extends TxVersion>({
   computeBudgetConfig?: ComputeBudgetConfig
   payer: PublicKey
 }): Promise<(T extends typeof TxVersion.LEGACY ? InnerSimpleLegacyTransaction : InnerSimpleV0Transaction)[]> {
-  const lookupTableAddressAccount = lookupTableCache ?? {}
-  const allLTA = [
-    ...new Set<string>(innerTransaction.map((i) => (i.lookupTableAddress ?? []).map((ii) => ii.toString())).flat()),
-  ]
-  const needCacheLTA: PublicKey[] = []
-  for (const item of allLTA) {
-    if (lookupTableAddressAccount[item] === undefined) needCacheLTA.push(new PublicKey(item))
-  }
-
-  let newCacheLTA: CacheLTA = {}
-
-  if (needCacheLTA.length) {
-    newCacheLTA = await getMultipleLookupTableInfo({ connection, address: needCacheLTA })
-  }
-
-  for (const [key, value] of Object.entries(newCacheLTA)) lookupTableAddressAccount[key] = value
+  const lookupTableAddressAccount = await handleLTACache({
+    connection,
+    lookupTableCache,
+    innerTransactions: innerTransaction,
+  })
 
   const addComputeBudgetInnerTx = computeBudgetConfig
     ? addComputeBudget(computeBudgetConfig).innerTransaction
